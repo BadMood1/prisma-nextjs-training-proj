@@ -1,4 +1,6 @@
 import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
+import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,6 +10,41 @@ export default async function DashboardPage() {
     if (!session?.user?.id) {
         redirect("/auth/signin");
     }
+
+    const [applications, postedJobs] = await Promise.all([
+        // Applications query
+        prisma.application.findMany({
+            where: {
+                userId: session.user.id,
+            },
+            include: {
+                job: {
+                    include: {
+                        postedBy: true,
+                    },
+                },
+            },
+            orderBy: {
+                appliedAt: "desc",
+            },
+        }),
+        // Jobs query
+        prisma.job.findMany({
+            where: {
+                postedById: session.user.id,
+            },
+            include: {
+                _count: {
+                    select: {
+                        applications: true, // вернёт число
+                    },
+                },
+            },
+            orderBy: {
+                postedAt: "desc",
+            },
+        }),
+    ]);
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -24,8 +61,10 @@ export default async function DashboardPage() {
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm divide-y divide-gray-200">
-                        {/* {postedJobs.length === 0 ? (
-                            <p className="p-6 text-gray-500 text-center">You haven't posted any jobs yet.</p>
+                        {postedJobs.length === 0 ? (
+                            <p className="p-6 text-gray-500 text-center">
+                                You haven&apos;t posted any jobs yet.
+                            </p>
                         ) : (
                             postedJobs.map((job) => (
                                 <div key={job.id} className="p-6">
@@ -63,18 +102,18 @@ export default async function DashboardPage() {
                                     </div>
                                 </div>
                             ))
-                        )} */}
+                        )}
                     </div>
                 </div>
 
                 {/* Applications Section */}
-                {/* <div>
+                <div>
                     <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Applications</h2>
 
                     <div className="bg-white rounded-lg shadow-sm divide-y divide-gray-200">
                         {applications.length === 0 ? (
                             <p className="p-6 text-gray-500 text-center">
-                                You haven't applied to any jobs yet.
+                                You haven&apos;t applied to any jobs yet.
                             </p>
                         ) : (
                             applications.map((application) => (
@@ -122,7 +161,7 @@ export default async function DashboardPage() {
                             ))
                         )}
                     </div>
-                </div> */}
+                </div>
             </div>
         </div>
     );
